@@ -1,8 +1,4 @@
-greetings = ndb.gql('SELECT * '
-                        'FROM Greeting '
-                        'WHERE ANCESTOR IS :1 '
-                        'ORDER BY date DESC LIMIT 10',
-                        guestbook_key(guestbook_name))
+
 
 
 

@@ -5,6 +5,7 @@ import webapp2
 import json
 import logging
 
+from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.api import images
 
@@ -17,10 +18,17 @@ class HomeHandler(webapp2.RequestHandler):
     """Show the webform when the user is on the home page"""
     def get(self):
         self.response.out.write('<html><body>')
+
+        # Print out some stats on caching
+        stats = memcache.get_stats()
+        self.response.write('<b>Cache Hits:{}</b><br>'.format(stats['hits']))
+        self.response.write('<b>Cache Misses:{}</b><br><br>'.format(
+                            stats['misses']))
+
         user = self.request.get('user')
         ancestor_key = ndb.Key("User", user or "*notitle*")
         # Query the datastore
-        photos = Photo.query_user(ancestor_key).fetch(20)
+        photos = Photo.query_user(ancestor_key).fetch(100)
 
 
         self.response.out.write("""
@@ -42,8 +50,9 @@ class UserHandler(webapp2.RequestHandler):
 
     """Print json or html version of the users photos"""
     def get(self,user,type):
-        ancestor_key = ndb.Key("User", user)
-        photos = Photo.query_user(ancestor_key).fetch(100)
+        #ancestor_key = ndb.Key("User", user)
+        #photos = Photo.query_user(ancestor_key).fetch(100)
+        photos = self.get_data(user)
         if type == "json":
             output = self.json_results(photos)
         else:
@@ -70,13 +79,20 @@ class UserHandler(webapp2.RequestHandler):
             html += '<div><blockquote>Caption: %s<br>User: %s<br>Date:%s</blockquote></div></div>' % (cgi.escape(photo.caption),photo.user,str(photo.date))
         return html
 
-    def get_data():
-        data = memcache.get('key')
+    @staticmethod
+    def get_data(user):
+        """Get data from the datastore only if we don't have it cached"""
+        key = user + "_photos"
+        data = memcache.get(key)
         if data is not None:
+            logging.info("Found in cache")
             return data
         else:
-            data = query_for_data()
-            memcache.add('key', data, 60)
+            logging.info("Cache miss")
+            ancestor_key = ndb.Key("User", user)
+            data = Photo.query_user(ancestor_key).fetch(100)
+            if not memcache.add(key, data, 3600):
+                logging.info("Memcache failed")
         return data
 
 ################################################################################
@@ -117,7 +133,12 @@ class PostHandler(webapp2.RequestHandler):
                 caption=self.request.get('caption'),
                 image=thumbnail)
         photo.put()
-        logging.info("1.")
+
+        # Clear the cache (the cached version is going to be outdated)
+        key = user + "_photos"
+        memcache.delete(key)
+
+        # Redirect to print out JSON
         self.redirect('/user/%s/json/' % user)
 
 
