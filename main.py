@@ -234,9 +234,14 @@ class DeleteHandler(webapp2.RequestHandler):
 
         photo_delete_key = ndb.Key(urlsafe=key)
         logging.info("Photo with key exists {}".format(photo_delete_key))
+        photo_delete_key.delete()
 
-        self.get_photo(photo_delete_key, user_obj)
+        #self.get_photo(photo_delete_key, user_obj)
         #photo_obj.key.delete()
+
+
+
+
 
 
         #remove user from cache
