@@ -1,3 +1,6 @@
+
+
+
 All functions appear to work. However, they only work if the url includes the token in the following form: 
 ".../<token>/" and not in the form ".../?id_token=<token>"
 
